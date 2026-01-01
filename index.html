@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buffy Beat Market - Space Pro</title>
+    <title>Buffy Beat Market - Instant Kill</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #05070a; font-family: 'Segoe UI', Tahoma, sans-serif; }
         canvas { display: block; }
         #ui { position: absolute; top: 15px; left: 15px; color: #848e9c; font-size: 20px; pointer-events: none; z-index: 10; }
         #score { color: #f0b90b; font-weight: bold; font-size: 32px; }
         
-        /* GIỮ NGUYÊN BẢNG RULE CŨ THEO YÊU CẦU */
         #msg { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
             color: white; text-align: center; 
@@ -25,14 +24,7 @@
         h1 { color: #f0b90b; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 2px; font-size: 28px; }
         
         .rules-list { text-align: left; background: rgba(0,0,0,0.4); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-        .rule-item { 
-            display: flex; 
-            align-items: center; 
-            margin-bottom: 15px; 
-            font-size: 15px; 
-            color: #d1d4dc;
-            line-height: 1.5;
-        }
+        .rule-item { display: flex; align-items: center; margin-bottom: 15px; font-size: 15px; color: #d1d4dc; line-height: 1.5; }
         .rule-icon { width: 35px; height: 35px; margin-right: 15px; flex-shrink: 0; object-fit: contain; }
         .rule-text { flex-grow: 1; }
         .rule-text b { color: #f0b90b; font-size: 16px; display: block; margin-bottom: 2px; }
@@ -40,12 +32,7 @@
         .final-profit { font-size: 24px; margin-bottom: 20px; }
         .final-profit b { color: #f0b90b; font-size: 40px; }
         
-        button { 
-            padding: 16px 50px; font-size: 20px; cursor: pointer; 
-            background: #02c076; border: none; color: white; 
-            border-radius: 10px; font-weight: bold; transition: 0.3s;
-            text-transform: uppercase;
-        }
+        button { padding: 16px 50px; font-size: 20px; cursor: pointer; background: #02c076; border: none; color: white; border-radius: 10px; font-weight: bold; transition: 0.3s; text-transform: uppercase; }
         button:hover { background: #03a66d; transform: scale(1.05); }
     </style>
 </head>
@@ -54,11 +41,9 @@
 <div id="ui">PROFIT: <span id="score">0$</span></div>
 
 <div id="msg">
-    <img id="game-over-img" src="gameover.png" alt="Buffy Market Header">
-    
+    <img id="game-over-img" src="gameover.png" alt="Header">
     <div class="stats-content" id="start-content">
         <h1>Buffy Beat Market</h1>
-        
         <div class="rules-list">
             <div class="rule-item">
                 <img src="icon_green.png" class="rule-icon" alt="Up">
@@ -70,17 +55,15 @@
             </div>
             <div class="rule-item">
                 <img src="icon_pill.png" class="rule-icon" alt="Power">
-                <div class="rule-text"><b>Bull Run Pill:</b> Rainbow power! Invincibility and Auto-Shoot enabled.</div>
+                <div class="rule-text"><b>Bull Run Pill:</b> Rainbow power! Invincibility and Auto-Shoot enabled for 10s.</div>
             </div>
             <div class="rule-item">
                 <img src="icon_control.png" class="rule-icon" alt="Key">
                 <div class="rule-text"><b>Controls:</b> Press SPACE or CLICK to fly. Avoid liquidation at all costs!</div>
             </div>
         </div>
-        
         <button id="start-btn">OPEN POSITION</button>
     </div>
-
     <div class="stats-content" id="over-content" style="display: none;">
         <h1 style="color: #f84960;">LIQUIDATED!</h1>
         <div class="final-profit">Total Profit: <b id="final-score">0$</b></div>
@@ -97,74 +80,68 @@
     const msgEl = document.getElementById('msg');
     const startBtn = document.getElementById('start-btn');
     const finalScoreEl = document.getElementById('final-score');
-    const startContent = document.getElementById('start-content');
-    const overContent = document.getElementById('over-content');
+
+    const sounds = {
+        flap: new Audio('flap.mp3'),
+        powerup: new Audio('powerup.mp3'),
+        shoot: new Audio('shoot.mp3'),
+        explosion: new Audio('explosion.mp3'),
+        gameover: new Audio('gameover.mp3')
+    };
+
+    function playSound(name) {
+        if (sounds[name]) {
+            sounds[name].currentTime = 0;
+            sounds[name].play().catch(() => {});
+        }
+    }
 
     let animationId, gameRunning = false;
-
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
 
     const ASSETS = { buffy: 'buffy.png', bullet: 'dan.png', pill: 'thuoc.png', bear: 'gau.png' };
     const images = {};
     for (let key in ASSETS) { images[key] = new Image(); images[key].src = ASSETS[key]; }
 
     const stars = [];
-    for(let i=0; i<120; i++) {
-        stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 2.5, speed: Math.random() * 0.4 + 0.1 });
-    }
+    for(let i=0; i<120; i++) { stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 2.5, speed: Math.random() * 0.4 + 0.1 }); }
 
     let score, frames, pipes, obstacles, powerUps, bullets, explosions, lastHeight, redStreak, bullRunTimer;
-    
-    // CONFIGURATION LOGIC MỚI
     const NORMAL_SPEED = 5.5;
     const MAX_BULL_SPEED = 15;
-    const BULL_RUN_DURATION = 600; // 10 giây (60fps * 10)
-    const DECEL_START = 240;      // Bắt đầu giảm tốc từ 4 giây cuối (60fps * 4)
+    const BULL_RUN_DURATION = 600; 
+    const DECEL_START = 240;      
+    const AUTO_FLY_TIME = 120;    
 
     const buffy = { x: 120, y: 0, w: 150, h: 120, gravity: 0.45, velocity: 0, jump: -9 };
 
     function initVariables() {
         score = 0; frames = 0; pipes = []; obstacles = []; powerUps = []; bullets = []; explosions = [];
-        lastHeight = canvas.height / 3;
-        redStreak = 0; bullRunTimer = 0;
-        buffy.y = canvas.height / 2;
-        buffy.velocity = 0;
+        lastHeight = canvas.height / 3; redStreak = 0; bullRunTimer = 0;
+        buffy.y = canvas.height / 2; buffy.velocity = 0;
         scoreEl.innerText = "0$";
     }
 
-    startBtn.onclick = () => {
-        msgEl.style.display = 'none';
-        startGame();
-    };
-
-    function startGame() {
-        if (gameRunning) return;
-        initVariables();
-        gameRunning = true;
-        gameLoop();
-    }
+    startBtn.onclick = () => { msgEl.style.display = 'none'; startGame(); };
+    function startGame() { if (gameRunning) return; initVariables(); gameRunning = true; gameLoop(); }
 
     function createData() {
         const maxHeight = canvas.height * 0.55;
         let change = (Math.random() - 0.5) * (canvas.height * 0.4);
         let newHeight = Math.max(100, Math.min(maxHeight, lastHeight + change));
         let isGreen = newHeight > lastHeight;
-        
         let pipeY = canvas.height - newHeight;
         pipes.push({ x: canvas.width, y: pipeY, w: 60, h: newHeight, color: isGreen ? '#02c076' : '#f84960', passed: false });
 
-        // Tăng tần suất Gấu trong Bull Run
-        let bearTrigger = (bullRunTimer > 0) ? 1 : 3;
+        let isBullRun = bullRunTimer > 0;
+        let bearTrigger = isBullRun ? 1 : 3;
 
         if (!isGreen) {
             redStreak++;
             if (redStreak >= bearTrigger) {
-                obstacles.push({ x: canvas.width, y: 100, w: 90, h: 80, killed: false, targetted: false });
+                let bearY = isBullRun ? Math.random() * (canvas.height - 150) + 50 : 100;
+                obstacles.push({ x: canvas.width, y: bearY, w: 90, h: 80, killed: false, targetted: false });
                 redStreak = 0;
             }
         } else { redStreak = 0; }
@@ -178,106 +155,100 @@
 
     function update() {
         frames++;
+        let isBullRun = bullRunTimer > 0;
         let currentSpeed = NORMAL_SPEED;
 
-        // Xử lý Bull Run Logic (Tăng tốc & Giảm tốc)
-        if (bullRunTimer > 0) {
+        if (isBullRun) {
             bullRunTimer--;
             if (bullRunTimer < DECEL_START) {
-                // Giảm tốc mượt mà từ 15 về 5.5
                 let ratio = bullRunTimer / DECEL_START;
                 currentSpeed = NORMAL_SPEED + (MAX_BULL_SPEED - NORMAL_SPEED) * ratio;
+            } else { currentSpeed = MAX_BULL_SPEED; }
+
+            if (bullRunTimer <= AUTO_FLY_TIME) {
+                buffy.y += (100 - buffy.y) * 0.08;
             } else {
-                currentSpeed = MAX_BULL_SPEED;
+                buffy.y += (canvas.height/2 - 100 - buffy.y) * 0.06;
             }
             buffy.velocity = 0;
-            buffy.y += (canvas.height/2 - 100 - buffy.y) * 0.06;
         } else {
             buffy.velocity += buffy.gravity;
             buffy.y += buffy.velocity;
         }
 
-        // Tạo dữ liệu nhanh hơn khi đang Bull Run
-        let spawnRate = (bullRunTimer > 0) ? 25 : 48;
+        let spawnRate = isBullRun ? 22 : 48;
         if (frames % spawnRate === 0) createData();
 
         stars.forEach(s => { s.x -= s.speed * (currentSpeed / NORMAL_SPEED); if(s.x < 0) s.x = canvas.width; });
-
         pipes.forEach(p => {
             p.x -= currentSpeed;
-            if (bullRunTimer <= 0 && checkCollision(buffy, p)) gameOver();
+            if (!isBullRun && checkCollision(buffy, p)) gameOver();
             if (!p.passed && p.x + p.w < buffy.x) { p.passed = true; score++; scoreEl.innerText = score + "$"; }
         });
 
-        obstacles.forEach(o => { 
-            o.x -= currentSpeed; 
-            if (bullRunTimer <= 0 && !o.killed && checkCollision(buffy, o)) gameOver(); 
-            if (bullRunTimer > 0 && !o.killed && !o.targetted) {
+        // CẬP NHẬT LOGIC GẤU: Xóa khỏi mảng khi bị giết
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let o = obstacles[i];
+            o.x -= currentSpeed;
+            if (o.x + o.w < -50) { obstacles.splice(i, 1); continue; }
+
+            if (!isBullRun && !o.killed && checkCollision(buffy, o)) gameOver(); 
+            
+            if (isBullRun && !o.killed && !o.targetted) {
                 o.targetted = true;
                 bullets.push({ x: buffy.x + buffy.w, y: buffy.y + buffy.h / 2, target: o, speed: 20 });
+                playSound('shoot');
             }
-        });
+        }
 
         for (let i = bullets.length - 1; i >= 0; i--) {
             let b = bullets[i];
             let tCX = b.target.x + b.target.w / 2;
             let tCY = b.target.y + b.target.h / 2;
-            b.x += b.speed;
-            b.y += (tCY - b.y) * 0.12;
+            b.x += b.speed; b.y += (tCY - b.y) * 0.15;
+            
             if (b.x >= tCX) {
+                // XỬ LÝ BIẾN MẤT: Đánh dấu giết và tạo nổ
                 b.target.killed = true;
                 explosions.push({ x: tCX, y: tCY, r: 12, life: 25 });
                 bullets.splice(i, 1);
+                playSound('explosion');
+                
+                // Loại bỏ Gấu ngay lập tức khỏi mảng obstacles
+                let bearIdx = obstacles.indexOf(b.target);
+                if (bearIdx > -1) obstacles.splice(bearIdx, 1);
             }
         }
 
         powerUps.forEach((p, i) => {
             p.x -= currentSpeed;
-            if (checkCollision(buffy, p)) { bullRunTimer = BULL_RUN_DURATION; powerUps.splice(i, 1); }
+            if (checkCollision(buffy, p)) { bullRunTimer = BULL_RUN_DURATION; powerUps.splice(i, 1); playSound('powerup'); }
         });
 
         explosions.forEach((ex, i) => { ex.r += 4.5; ex.life--; if (ex.life <= 0) explosions.splice(i, 1); });
-
-        if (buffy.y + buffy.h > canvas.height || (buffy.y + buffy.h < -120 && bullRunTimer <= 0)) gameOver();
+        if (buffy.y + buffy.h > canvas.height || (buffy.y + buffy.h < -120 && !isBullRun)) gameOver();
         pipes = pipes.filter(p => p.x + p.w > -100);
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Stars
-        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-        stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill(); });
-
-        // Candles
+        stars.forEach(s => { ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill(); });
         pipes.forEach(p => {
             ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.w, p.h);
             ctx.strokeStyle = p.color; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(p.x + p.w/2, p.y); ctx.lineTo(p.x + p.w/2, canvas.height); ctx.stroke();
         });
-
-        // Bears
+        
+        // CHỈ VẼ GẤU CHƯA BỊ GIẾT
         obstacles.forEach(o => {
-            ctx.save();
-            if (o.killed) ctx.globalAlpha = 0.12;
-            if (images.bear.complete) ctx.drawImage(images.bear, o.x, o.y, o.w, o.h);
-            ctx.restore();
+            if (!o.killed && images.bear.complete) ctx.drawImage(images.bear, o.x, o.y, o.w, o.h);
         });
 
-        // Bullets
         bullets.forEach(b => { if (images.bullet.complete) ctx.drawImage(images.bullet, b.x, b.y - 25, 80, 50); });
-
-        // Rainbow Pill
         powerUps.forEach(p => { 
-            ctx.save();
-            let pillHue = (frames * 10) % 360;
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = `hsl(${pillHue}, 100%, 50%)`;
-            if (images.pill.complete) ctx.drawImage(images.pill, p.x, p.y, p.w, p.h);
-            ctx.restore();
+            ctx.save(); let hue = (frames * 10) % 360; ctx.shadowBlur = 25; ctx.shadowColor = `hsl(${hue}, 100%, 50%)`;
+            if (images.pill.complete) ctx.drawImage(images.pill, p.x, p.y, p.w, p.h); ctx.restore();
         });
-
-        // Buffy & Aura
         ctx.save();
         if (bullRunTimer > 0) {
             let hue = (frames * 8) % 360;
@@ -286,46 +257,31 @@
             ctx.fillRect(buffy.x, buffy.y - 25, (bullRunTimer/BULL_RUN_DURATION)*buffy.w, 10);
         }
         if (images.buffy.complete) ctx.drawImage(images.buffy, buffy.x, buffy.y, buffy.w, buffy.h);
-        else { ctx.fillStyle = "#f0b90b"; ctx.fillRect(buffy.x, buffy.y, buffy.w, buffy.h); }
         ctx.restore();
-
-        // Explosions
-        explosions.forEach(ex => {
-            ctx.strokeStyle = `rgba(255, 255, 255, ${ex.life/25})`;
-            ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ex.x, ex.y, ex.r, 0, Math.PI*2); ctx.stroke();
-        });
+        explosions.forEach(ex => { ctx.strokeStyle = `rgba(255, 255, 255, ${ex.life/25})`; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ex.x, ex.y, ex.r, 0, Math.PI*2); ctx.stroke(); });
     }
 
-    function gameLoop() {
-        if (!gameRunning) return;
-        update();
-        draw();
-        animationId = requestAnimationFrame(gameLoop);
-    }
+    function gameLoop() { if (!gameRunning) return; update(); draw(); animationId = requestAnimationFrame(gameLoop); }
 
     function gameOver() {
-        gameRunning = false;
-        cancelAnimationFrame(animationId);
+        gameRunning = false; cancelAnimationFrame(animationId);
+        playSound('gameover');
+        document.getElementById('start-content').style.display = 'none';
+        document.getElementById('over-content').style.display = 'block';
         msgEl.style.display = 'block';
-        startContent.style.display = 'none';
-        overContent.style.display = 'block';
         finalScoreEl.innerText = score + "$";
     }
 
-    function checkCollision(a, b) {
-        return a.x + 45 < b.x + b.w && a.x + a.w - 45 > b.x && a.y + 40 < b.y + b.h && a.y + a.h - 40 > b.y;
-    }
+    function checkCollision(a, b) { return a.x + 45 < b.x + b.w && a.x + a.w - 45 > b.x && a.y + 40 < b.y + b.h && a.y + a.h - 40 > b.y; }
 
     const flap = (e) => { 
         if (e.code === 'Space' || e.type === 'mousedown') {
-            if (gameRunning) {
-                buffy.velocity = buffy.jump;
-                if(e.type === 'keydown') e.preventDefault();
+            if (gameRunning && bullRunTimer <= 0) { 
+                buffy.velocity = buffy.jump; playSound('flap'); if(e.type === 'keydown') e.preventDefault(); 
             }
         }
     };
-    window.addEventListener('keydown', flap);
-    canvas.addEventListener('mousedown', flap);
+    window.addEventListener('keydown', flap); canvas.addEventListener('mousedown', flap);
 </script>
 </body>
 </html>
